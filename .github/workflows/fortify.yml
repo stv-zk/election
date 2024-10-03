@@ -1,0 +1,53 @@
+name: Secure Voting System Scan
+
+# Personaliza los eventos que desencadenan el flujo de trabajo según tu proceso DevSecOps y/o política
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    # Las ramas a continuación deben ser un subconjunto de las ramas anteriores
+    branches: [ "main" ]
+  schedule:
+    - cron: '44 23 * * 4'
+  workflow_dispatch:
+
+jobs:
+  Security-Scan:
+    # Utiliza el runner adecuado para compilar tu código fuente. Asegúrate de que las herramientas de desarrollo necesarias para compilar tu código estén presentes y configuradas correctamente (por ejemplo, Node.js para TypeScript).
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      # Verifica el código fuente
+      - name: Check Out Source Code
+        uses: actions/checkout@v4
+
+      # Configura Node.js, ya que es necesario para compilar el frontend de TypeScript
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      # Instala las dependencias del proyecto
+      - name: Install Dependencies
+        run: npm install
+
+      # Realiza un análisis estático de seguridad del código, asegurándose de que el sistema de votación sea seguro
+      - name: Run SAST Scan
+        uses: fortify/github-action@a92347297e02391b857e7015792cd1926a4cd418
+        with:
+          sast-scan: true
+        env:
+          ### Configuración requerida para la integración con Fortify
+          FOD_URL: https://ams.fortify.com
+          FOD_TENANT: ${{secrets.FOD_TENANT}}
+          FOD_USER: ${{secrets.FOD_USER}}
+          FOD_PASSWORD: ${{secrets.FOD_PAT}}
+          ### Configuración opcional
+          # EXTRA_PACKAGE_OPTS: -oss                       # Opciones adicionales para el paquete
+          # EXTRA_FOD_LOGIN_OPTS: --socket-timeout=60s     # Opciones adicionales para la sesión de login
+          # DO_WAIT: true                                  # Espera a que el escaneo se complete
+          # DO_EXPORT: true                                # Exporta los resultados del escaneo SAST al dashboard de GitHub
