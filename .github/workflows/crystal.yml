@@ -1,0 +1,92 @@
+name: Voting System CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: crystallang/crystal # Use Crystal's official Docker image
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: shards install
+        working-directory: ./ # Install dependencies for the Crystal project
+
+      - name: Compile Crystal project
+        run: crystal build src/main.cr --release
+        working-directory: ./ # Compile the Crystal project
+
+  test:
+    runs-on: ubuntu-latest
+
+    container:
+      image: crystallang/crystal # Use Crystal's official Docker image
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: shards install
+        working-directory: ./ # Install dependencies for the Crystal project
+
+      - name: Run unit tests
+        run: crystal spec
+        working-directory: ./ # Run the Crystal tests using `crystal spec`
+
+  solidity-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Solidity environment
+        run: sudo npm install -g truffle ganache-cli solc
+
+      - name: Install Solidity dependencies
+        run: npm install
+        working-directory: ./contracts
+
+      - name: Compile Solidity contracts
+        run: truffle compile
+        working-directory: ./contracts # Compile Solidity contracts
+
+      - name: Run Solidity tests
+        run: truffle test
+        working-directory: ./contracts # Execute Solidity tests
+
+  circom-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Circom and SnarkJS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y circom
+          npm install -g snarkjs
+
+      - name: Compile Circom circuits
+        run: circom vote_anonymization.circom --r1cs --wasm --sym --c
+        working-directory: ./circuits # Compile Circom circuits
+
+      - name: Generate zk-STARK proof
+        run: |
+          cd ./circuits
+          snarkjs groth16 setup vote_anonymization.r1cs pot12_final.ptau vote_anonymization.zkey
+          snarkjs zkey export verificationkey vote_anonymization.zkey verification_key.json
+          snarkjs groth16 prove vote_anonymization.zkey witness.wtns proof.json public.json
